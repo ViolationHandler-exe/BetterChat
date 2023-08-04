@@ -7,6 +7,7 @@ using System.Linq;
 using System;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using UnityEngine;
 
 #if RUST
 using ConVar;
@@ -22,8 +23,9 @@ using CompanionServer;
 
 namespace Oxide.Plugins
 {
-    [Info("Better Chat", "LaserHydra", "5.2.12")]
+    [Info("Better Chat", "LaserHydra", "5.2.13")]
     [Description("Allows to manage chat groups, customize colors and add titles.")]
+    internal class BetterChat : CovalencePlugin
     internal class BetterChat : CovalencePlugin
     {
         #region Fields
@@ -179,12 +181,12 @@ namespace Oxide.Plugins
                     List<Network.Connection> onlineMemberConnections = team.GetOnlineMemberConnections();
                     if (onlineMemberConnections != null)
                     {
-                        ConsoleNetwork.SendClientCommand(onlineMemberConnections, "chat.add", (int) chatchannel, chatMessage.Player.Id, output.Chat);
+                        ConsoleNetwork.SendClientCommand(onlineMemberConnections, "chat.add2", (int) chatchannel, chatMessage.Player.Id, output.Chat, output.Username, "#55aaff");
                     }
                     break;
 
                 case Chat.ChatChannel.Cards:
-                    CardTable cardTable = basePlayer.GetMountedVehicle() as CardTable;
+                    CardTable cardTable = basePlayer.GetMountedVehicle() as CardTable;  
 
                     if (cardTable == null /* || !cardTable.GameController.PlayerIsInGame(basePlayer) */)
                     {
@@ -203,7 +205,7 @@ namespace Oxide.Plugins
 
                     if (list.Count > 0)
                     {
-                        ConsoleNetwork.SendClientCommand(list, "chat.add", (int) chatchannel, chatMessage.Player.Id, output.Chat);
+                        ConsoleNetwork.SendClientCommand(list, "chat.add2", (int) chatchannel, chatMessage.Player.Id, output.Chat, output.Username, "#55aaff");
                     }
 
                     Facepunch.Pool.FreeList(ref list);
@@ -220,7 +222,7 @@ namespace Oxide.Plugins
                         
                         if ((basePlayer.transform.position - player.transform.position).sqrMagnitude <= localRange)
                         {
-                            player.SendConsoleCommand("chat.add", (int)chatchannel, chatMessage.Player.Id, output.Chat);
+                            player.SendConsoleCommand("chat.add2", (int)chatchannel, chatMessage.Player.Id, output.Chat, output.Username, "#55aaff");
                         }
                     }
 
@@ -228,7 +230,7 @@ namespace Oxide.Plugins
                 
                 default:
                     foreach (BasePlayer p in BasePlayer.activePlayerList.Where(p => !chatMessage.BlockedReceivers.Contains(p.UserIDString)))
-                        p.SendConsoleCommand("chat.add", (int) chatchannel, chatMessage.Player.Id, output.Chat);
+                        p.SendConsoleCommand("chat.add2", (int) chatchannel, chatMessage.Player.Id, output.Chat, output.Username, "#55aaff");
                     break;
             }
 #else
@@ -683,7 +685,7 @@ namespace Oxide.Plugins
 
                 if (Username.Contains("[#") || Username.Contains("[+"))
                     Username = Username.Replace("[", string.Empty).Replace("]", string.Empty);
-
+                
                 Dictionary<string, string> replacements = new Dictionary<string, string>
                 {
                     ["Title"] = string.Join(" ", Titles.ToArray()),
@@ -695,15 +697,25 @@ namespace Oxide.Plugins
                     ["Date"] = DateTime.Now.ToString()
                 };
 
+                
+#if RUST
+                output.Username = FormatSettings.Username;
+#endif
                 output.Chat = FormatSettings.Chat;
                 output.Console = FormatSettings.Console;
-
                 foreach (var replacement in replacements)
                 {
+#if RUST
+                    output.Username = _instance.covalence.FormatText(output.Username.Replace($"{{{replacement.Key}}}", replacement.Value));
+                    output.Console = StripRichText(output.Console.Replace($"{{{replacement.Key}}}", replacement.Value));
+#else
                     output.Console = StripRichText(output.Console.Replace($"{{{replacement.Key}}}", replacement.Value));
                     output.Chat = _instance.covalence.FormatText(output.Chat.Replace($"{{{replacement.Key}}}", replacement.Value));
+#endif
                 }
-
+#if RUST
+                output.Chat = Message;
+#endif
                 if (output.Chat.StartsWith(" "))
                     output.Chat = output.Chat.Remove(0, 1);
 
@@ -977,8 +989,14 @@ namespace Oxide.Plugins
 
             public class FormatSettings
             {
+#if RUST
+                public string Chat = "{Message}";
+                public string Username = "{Title} {Username}";
+                public string Console = "{Title} {Username}: {Message}";
+#else
                 public string Chat = "{Title} {Username}: {Message}";
                 public string Console = "{Title} {Username}: {Message}";
+#endif
             }
 
             public class Field
