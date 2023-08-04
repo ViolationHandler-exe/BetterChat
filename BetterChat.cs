@@ -26,7 +26,6 @@ namespace Oxide.Plugins
     [Info("Better Chat", "LaserHydra", "5.2.13")]
     [Description("Allows to manage chat groups, customize colors and add titles.")]
     internal class BetterChat : CovalencePlugin
-    internal class BetterChat : CovalencePlugin
     {
         #region Fields
 
